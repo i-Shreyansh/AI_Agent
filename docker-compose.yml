@@ -1,0 +1,51 @@
+version: "3.9"
+services:
+  ollama:
+    image: ollama/ollama
+    container_name: ollama_new
+    ports:
+      - "11434:11434"
+    volumes:
+      - "D:/Ollama_models:/root/.ollama"
+    runtime: nvidia
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+    networks:
+      - mynet
+  db:
+    image: postgres:15
+    container_name: postgres_db
+    restart: always
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: admin
+      POSTGRES_DB: chatdb
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+
+  ai_assistant:
+    build: .
+    container_name: server
+    ports:
+      - "8000:8000"
+    networks:
+      - mynet
+    depends_on:
+      - ollama
+    restart: always
+
+  frontend:
+    build: ./frontend
+    container_name: app
+    depends_on:
+      - ai_assistant
+    ports:
+      - "8501:8501"
+networks:
+  mynet:
+    driver: bridge
+volumes:
+  postgres_data:
