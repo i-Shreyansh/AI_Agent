@@ -4,6 +4,7 @@ from langchain.chat_models import init_chat_model
 from AI_Assistant.core.configs import geminiConfig, ollamaConfig
 import requests
 
+
 def get_working_url(urls):
     for url in urls:
         try:
@@ -36,6 +37,7 @@ def ollama_llm():
         base_url=get_working_url(ollamaConfig["base_url"])
     )
     return llm
+
 if __name__ == "__main__":
     # gemini_llm()
     ollama_llm()

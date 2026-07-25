@@ -1,7 +1,7 @@
 
 Config = {
-    # llm: "ollama",
-    "llm": "gemini"
+    "llm": "ollama"
+    # "llm": "gemini"
 }
 
 geminiConfig = {
@@ -11,7 +11,8 @@ geminiConfig = {
 
 }
 ollamaConfig = {
-    "model": "gemma3:1b",
+    # "model": "gemma3:1b",
+    "model": "qwen2.5:1.5b",
     "model_provider": "ollama",
     "base_url": ["http://localhost:11434/",
                  "http://ollama_new:11434/", 

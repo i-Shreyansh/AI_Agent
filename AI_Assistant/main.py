@@ -38,6 +38,7 @@ while True:
         "role": "user",
         "content": query
     })
+    
     try:
         # Run graph
         state = State_graph().invoke(state)
@@ -45,7 +46,21 @@ while True:
         logging.error(f"Rate limit exceeded")
         print("Sorry, the service is currently busy. Please try again later.")
         break
+    response = state.get("structured_response")
+    
+    if response.step == "PLAN":
+        # ✅ Append message
+        state["messages"].append({
+            "role": "response",
+            "content": "Now give next Step: PlAN | OUTPUT along with content (Follow System Prompt)"
+        })
+        
+        state = State_graph().invoke(state)
+        continue
+    if response.step == "OUTPUT":
+        break
         
 
     # Get last AI response
-    print("Response ✅:", state.get("messages")[-1].content)
+    print("Response ✅:", state.get("structured_response")[-1].content)
+    print("\n\n"+response.model_dump())

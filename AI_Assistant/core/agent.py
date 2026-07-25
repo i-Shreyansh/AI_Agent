@@ -7,17 +7,25 @@ from AI_Assistant.services.llm import gemini_llm, ollama_llm
 from langgraph.graph import StateGraph, START, END
 from AI_Assistant.core.configs import Config
 import logging
-
+from pydantic import BaseModel, Field
+from typing import Optional
 
 
 # print("Initializing 🔃...")
 logging.basicConfig(level=logging.INFO)
 logging.info("Conection Initializing...")
 
+class ResponseFormat(BaseModel):
+    step: str = Field(..., description="The ID of the step. Example: PLAN, OUTPUT, TOOL, etc")
+    content: str = Field(..., description="The optional string content for the step")
+    tool: Optional[str] = Field(None, description="The ID of the tool to call.")
+    input: Optional[str] = Field(None, description="The input params for the tool")
+
 
 
 class State(TypedDict):
     messages: Annotated[list, add_messages]
+    structured_response : ResponseFormat
 
 def chatbot(state: State):
 
@@ -30,9 +38,11 @@ def chatbot(state: State):
             raise ValueError(f"Invalid LLM specified in Config: {Config['llm']}")
         return llm
     
-    llm = choose_llm()
+    llm = choose_llm().with_structured_output(ResponseFormat)
+    
     response = llm.invoke(state.get("messages"))
-    return {"messages": [response]}
+    # return {"messages": [response]}
+    return {"structured_response": response}
 
 
 
@@ -46,14 +56,18 @@ def State_graph():
     graph = graph_builder.compile()
     return graph
 
-# if __name__ == "__main__":
-    
-#     print(State )
-    
-#     graph = State_graph(State)
-#     graph.invoke("Hii")
-#     print(State.dump)
-    
-#     # with open("graph.png", "wb") as f:
-#     #     f.write(graph.get_graph().draw_mermaid_png())
 
+    
+if __name__ == "__main__":
+    state = {
+        "messages": [
+            {"role": "user", "content": "Calculate 1+2+3...10?"}
+        ]
+    }
+
+    graph = State_graph()
+    result = graph.invoke(state)
+
+    print(result["structured_response"].model_dump())
+    print(state)
+ 
