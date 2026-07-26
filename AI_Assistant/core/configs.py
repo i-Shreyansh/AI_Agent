@@ -1,7 +1,8 @@
 
 Config = {
-    "llm": "ollama"
+    # "llm": "ollama"
     # "llm": "gemini"
+    "llm": "openrouter"
 }
 
 geminiConfig = {
@@ -18,4 +19,10 @@ ollamaConfig = {
                  "http://ollama_new:11434/", 
                     "http://ollama:11434/"
                  ]
+}
+
+openrouterConfig = {
+    "model": "google/gemma-4-26b-a4b-it:free",
+    "model_provider": "openai",
+    "base_url": "https://openrouter.ai/api/v1"
 }

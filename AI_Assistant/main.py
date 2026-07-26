@@ -7,6 +7,7 @@ if __package__ is None or __package__ == "":
 from AI_Assistant.core.prompts import SYSTEM_PROMPT
 from AI_Assistant.core.agent import State_graph, State
 from openai import RateLimitError
+from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
 
 import logging
 
@@ -20,8 +21,7 @@ logging.info("App started ✅")
           
 # Initial state (with system prompt)
 state = {
-    "messages": [
-        {"role": "system", "content": SYSTEM_PROMPT }
+    "messages": [ SystemMessage(content= SYSTEM_PROMPT)
     ]
 }
 
@@ -34,10 +34,7 @@ while True:
         break
 
     # ✅ Append user message
-    state["messages"].append({
-        "role": "user",
-        "content": query
-    })
+    state["messages"].append(HumanMessage(content= query))
     
     try:
         # Run graph
@@ -50,17 +47,19 @@ while True:
     
     if response.step == "PLAN":
         # ✅ Append message
-        state["messages"].append({
-            "role": "response",
-            "content": "Now give next Step: PlAN | OUTPUT along with content (Follow System Prompt)"
-        })
+        state["messages"].append(AIMessage(content=response.content))
+        print(f"Planning: {response.content}")
+        
+        print("Response ✅:", state)
         
         state = State_graph().invoke(state)
         continue
+        
+    
     if response.step == "OUTPUT":
         break
         
 
     # Get last AI response
-    print("Response ✅:", state.get("structured_response")[-1].content)
-    print("\n\n"+response.model_dump())
+    print("Response ✅:", state)
+    # print("\n\n"+response.model_dump())
