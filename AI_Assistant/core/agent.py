@@ -1,32 +1,19 @@
 import os
 from dotenv import load_dotenv
-from typing_extensions import TypedDict
-from typing import Annotated
-from langgraph.graph.message import add_messages
 from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
 from AI_Assistant.services.llm import gemini_llm, ollama_llm, openrouter_llm
 from langgraph.graph import StateGraph, START, END
 from AI_Assistant.core.configs import Config
+from AI_Assistant.core.schemas import State, ResponseFormat
 import logging
-from pydantic import BaseModel, Field
-from typing import Optional, Literal
+
 
 
 # print("Initializing 🔃...")
 logging.basicConfig(level=logging.INFO)
 logging.info("Conection Initializing...")
 
-class ResponseFormat(BaseModel):
-    step: Literal["PLAN", "TOOL", "OUTPUT", "ERROR"] 
-    content: str = Field(..., description="The optional string content for the step")
-    tool: Optional[str] = Field(None, description="The ID of the tool to call.")
-    input: Optional[str] = Field(None, description="The input params for the tool")
 
-
-
-class State(TypedDict):
-    messages: Annotated[list, add_messages]
-    structured_response : Optional[ResponseFormat]
 
 def chatbot(state: State):
 
@@ -42,11 +29,37 @@ def chatbot(state: State):
         return llm
     
     llm = choose_llm().with_structured_output(ResponseFormat)
-    
-    response = llm.invoke(state.get("messages"))
-    # return {"messages": [response]}
-    return {"messages": AIMessage(content=response.content),
-             "structured_response": response}
+
+    # Plans stay out of the visible chat history, but are provided to the LLM
+    # as temporary context on the next graph invocation.
+    llm_messages = list(state.get("messages", []))
+    if state.get("plans"):
+        plan_history = "\n".join(
+            f"{number}. {plan}"
+            for number, plan in enumerate(state["plans"], start=1)
+        )
+        llm_messages.append(
+            SystemMessage(
+                content=(
+                    "Planning history for this task:\n"
+                    f"{plan_history}\n"
+                    "Continue from this history and return OUTPUT when ready."
+                )
+            )
+        )
+
+    response = llm.invoke(llm_messages)
+    result = {"structured_response": response}
+
+    # The reducer on State.plans appends this entry to the existing list.
+    if response.step == "PLAN":
+        result["plans"] = [response.content]
+
+    # Only final answers become visible assistant messages.
+    elif response.step == "OUTPUT":
+        result["messages"] = [AIMessage(content=response.content)]
+
+    return result
 
 
 
@@ -67,7 +80,8 @@ if __name__ == "__main__":
     state = {
         "messages": [
             HumanMessage( content =  "Calculate 1+2+3...10?")
-        ]
+        ],
+        "plans": [],
     }
 
     graph = State_graph()
@@ -80,14 +94,13 @@ if __name__ == "__main__":
 
 
     
-    graph = State_graph()
     mess = HumanMessage( content =  "How are you")
 
     state["messages"].append(mess)
-    result = graph.invoke(state)
+    state = graph.invoke(state)
 
 
     # print(result["structured_response"].model_dump())
     # print(state)
-    print(result)
+    print(state)
     # print(f"\n\n {State}")

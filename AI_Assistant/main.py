@@ -8,7 +8,6 @@ from AI_Assistant.core.prompts import SYSTEM_PROMPT
 from AI_Assistant.core.agent import State_graph, State
 from openai import RateLimitError
 from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
-
 import logging
 
 logging.basicConfig(
@@ -21,13 +20,15 @@ logging.info("App started ✅")
           
 # Initial state (with system prompt)
 state = {
-    "messages": [ SystemMessage(content= SYSTEM_PROMPT)
-    ]
+    "messages": [SystemMessage(content=SYSTEM_PROMPT)],
+    "plans": [],
 }
+
+graph = State_graph()
 
 # 🔁 Chat loop
 while True:
-    query = input("Enter your query 👉 ")
+    query = input("Enter your query👉 : ")
 
     if query.lower() in ["exit", "quit", "bye"]:
         print("Exiting chat. Goodbye! 👋")
@@ -36,30 +37,34 @@ while True:
     # ✅ Append user message
     state["messages"].append(HumanMessage(content= query))
     
-    try:
-        # Run graph
-        state = State_graph().invoke(state)
-    except RateLimitError as e:
-        logging.error(f"Rate limit exceeded")
-        print("Sorry, the service is currently busy. Please try again later.")
-        break
-    response = state.get("structured_response")
-    
-    if response.step == "PLAN":
-        # ✅ Append message
-        state["messages"].append(AIMessage(content=response.content))
-        print(f"Planning: {response.content}")
-        
-        print("Response ✅:", state)
-        
-        state = State_graph().invoke(state)
-        continue
-        
-    
-    if response.step == "OUTPUT":
-        break
-        
 
-    # Get last AI response
-    print("Response ✅:", state)
-    # print("\n\n"+response.model_dump())
+ 
+    
+    while True:
+        state = graph.invoke(state)
+        response = state["structured_response"]
+
+
+        if response.step == "OUTPUT":
+            print(f"Answer🤖 : {response.content}")
+            print(f"Plan history🧠 : {state['plans']}")
+            break  # finish this query, return to input()
+
+        if response.step == "PLAN":
+            print(f"Thinking🧠 : {response.content}")
+            state["messages"].append(
+                HumanMessage(
+                    content="Continue from your plan. If you have enough information, "
+                            "return step='OUTPUT' with the final answer."
+                )
+            )
+
+        elif response.step == "ERROR":
+            print("Oops something went wrong! 🫢")
+            break
+
+        elif response.step == "TOOL":
+            print("Tool execution is not implemented yet.")
+            break
+        
+    print(state)

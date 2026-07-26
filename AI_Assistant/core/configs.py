@@ -1,8 +1,8 @@
 
 Config = {
-    # "llm": "ollama"
+    "llm": "ollama"
     # "llm": "gemini"
-    "llm": "openrouter"
+    # "llm": "openrouter"
 }
 
 geminiConfig = {
