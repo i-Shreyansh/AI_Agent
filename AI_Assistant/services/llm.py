@@ -1,8 +1,7 @@
-import os
-from dotenv import load_dotenv
 from langchain.chat_models import init_chat_model
-from .configs import config, Ollama_config
+from AI_Assistant.core.configs import geminiConfig, ollamaConfig, openrouterConfig
 import requests
+import os
 
 def get_working_url(urls):
     for url in urls:
@@ -18,28 +17,39 @@ def get_working_url(urls):
 
 
 def gemini_llm():
-    load_dotenv()
+    # load_dotenv()
     llm = init_chat_model(
-        model=config["model"],
-        model_provider=config["model_provider"],
+        model=geminiConfig["model"],
+        model_provider=geminiConfig["model_provider"],
         api_key=os.getenv("GEMINI_API_KEY"),
-        base_url=config["base_url"]
+        base_url=geminiConfig["base_url"]
     )
     return llm
 
 def ollama_llm():
-    load_dotenv()
+    # load_dotenv()
     llm = init_chat_model(
-        model=Ollama_config["model"],
-        model_provider=Ollama_config["model_provider"],
+        model=ollamaConfig["model"],
+        model_provider=ollamaConfig["model_provider"],
         api_key=os.getenv("OLLAMA_API_KEY"),
-        base_url=get_working_url(Ollama_config["base_url"])
+        base_url=get_working_url(ollamaConfig["base_url"])
     )
     return llm
+
+def openrouter_llm():
+    # load_dotenv()
+    llm = init_chat_model(
+        model=openrouterConfig["model"],
+        model_provider=openrouterConfig["model_provider"],
+        api_key=os.getenv("OPENROUTER_API_KEY"),
+        base_url=openrouterConfig["base_url"],
+    )
+    return llm
+
 if __name__ == "__main__":
     # gemini_llm()
-    ollama_llm()
-
+    # ollama_llm()
+    openrouter_llm()
     import logging
     logging.basicConfig(level=logging.INFO)
     logging.info("LLM initialized successfully.")

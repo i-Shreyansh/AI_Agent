@@ -1,6 +1,7 @@
+import asyncio
 from symtable import Class
 from xml.parsers.expat import model
-from Ai_agent import State_graph
+from AI_Assistant.core.agent import State_graph
 import speech_recognition as sr
 import pyttsx3
 import whisper
@@ -119,7 +120,7 @@ if __name__ == "__main__":
         })
 
         try:
-            state = graph.invoke(state)
+            state = asyncio.run(graph.ainvoke(state))
         except RateLimitError:
             logging.error("Rate limit exceeded")
             Voices().speak("Service busy.")

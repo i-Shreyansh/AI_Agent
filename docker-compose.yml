@@ -1,51 +1,79 @@
-version: "3.9"
 services:
+
   ollama:
-    image: ollama/ollama
+    image: ollama/ollama:latest
     container_name: ollama_new
+
     ports:
       - "11434:11434"
+
     volumes:
       - "D:/Ollama_models:/root/.ollama"
+
     runtime: nvidia
+
     environment:
       - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=compute,utility
+    
+
     networks:
       - mynet
-  db:
-    image: postgres:15
-    container_name: postgres_db
-    restart: always
-    environment:
-      POSTGRES_USER: admin
-      POSTGRES_PASSWORD: admin
-      POSTGRES_DB: chatdb
-    ports:
-      - "5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
+
+    restart: unless-stopped
 
 
   ai_assistant:
-    build: .
-    container_name: server
+    build:
+      context: .
+      dockerfile: docker/ai_agent.Dockerfile
+
+    container_name: ai_assistant_server
+
     ports:
       - "8000:8000"
-    networks:
-      - mynet
+
+    environment:
+      - OLLAMA_BASE_URL=http://ollama:11434
+
     depends_on:
       - ollama
-    restart: always
+
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+    networks:
+      - mynet
+
+    restart: unless-stopped
+
 
   frontend:
-    build: ./frontend
-    container_name: app
-    depends_on:
-      - ai_assistant
+    build:
+      context: .
+      dockerfile: docker/frontend.Dockerfile
+
+    container_name: ai_agent_app
+
     ports:
       - "8501:8501"
+
+    environment:
+      - API_URL=http://ai_assistant:8000
+
+    depends_on:
+      - ai_assistant
+
+    networks:
+      - mynet
+
+    restart: unless-stopped
+
+
 networks:
   mynet:
     driver: bridge
-volumes:
-  postgres_data:
