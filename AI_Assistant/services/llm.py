@@ -1,9 +1,7 @@
-import os
-from dotenv import load_dotenv
 from langchain.chat_models import init_chat_model
 from AI_Assistant.core.configs import geminiConfig, ollamaConfig, openrouterConfig
 import requests
-
+import os
 
 def get_working_url(urls):
     for url in urls:
@@ -19,7 +17,7 @@ def get_working_url(urls):
 
 
 def gemini_llm():
-    load_dotenv()
+    # load_dotenv()
     llm = init_chat_model(
         model=geminiConfig["model"],
         model_provider=geminiConfig["model_provider"],
@@ -29,7 +27,7 @@ def gemini_llm():
     return llm
 
 def ollama_llm():
-    load_dotenv()
+    # load_dotenv()
     llm = init_chat_model(
         model=ollamaConfig["model"],
         model_provider=ollamaConfig["model_provider"],
@@ -39,12 +37,12 @@ def ollama_llm():
     return llm
 
 def openrouter_llm():
-    load_dotenv()
+    # load_dotenv()
     llm = init_chat_model(
         model=openrouterConfig["model"],
         model_provider=openrouterConfig["model_provider"],
         api_key=os.getenv("OPENROUTER_API_KEY"),
-        base_url=openrouterConfig["base_url"]
+        base_url=openrouterConfig["base_url"],
     )
     return llm
 

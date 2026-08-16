@@ -1,149 +1,87 @@
-import streamlit as st
-import requests
+import os
 import json
 
-
-# ------------------------
-# CSS (Sticky Header)
-# ------------------------
-
-st.markdown("""
-<style>
-.sticky-header {
-    position: sticky;
-    top: 0;
-    background-color: #0e1117;
-    padding: 10px;
-    z-index: 999;
-    border-bottom: 1px solid #444;
-}
-</style>
-""", unsafe_allow_html=True)
-
-# ------------------------
-# DB
-# ------------------------
-USER_DB = "users.json"
-
-def load_users():
-    try:
-        with open(USER_DB, "r") as f:
-            return json.load(f)
-    except:
-        return {}
-
-def save_users(users):
-    with open(USER_DB, "w") as f:
-        json.dump(users, f)
-
-# ------------------------
-# Auth
-# ------------------------
-def signup(username, password):
-    users = load_users()
-    if username in users:
-        return False, "User already exists"
-    users[username] = password2
-    save_users(users)
-    return True, "Signup successful"
-
-def login(username, password):
-    users = load_users()
-    return username in users and users[username] == password
-
-# ------------------------
-# Backend API
-# ------------------------
-def get_response(query):
-    try:
-        res = requests.post("http://ai_app:8000/chat", json={"query": query})
-        return res.json().get("response", "No response")
-    except:
-        return "⚠️ Backend not connected"
+import requests
+import streamlit as st
 
 
-# ------------------------
-# Session State
-# ------------------------
-if "logged_in" not in st.session_state:
-    st.session_state.logged_in = False
-
-if "chat" not in st.session_state:
-    st.session_state.chat = []
+DEFAULT_API_URL = os.getenv("AI_ASSISTANT_API_URL", "http://ai_assistant_server:8000")
 
 
-# ------------------------
-# LOGIN / SIGNUP
-# ------------------------
-if not st.session_state.logged_in:
-    st.title("🔐 Chat Assistant")
-
-    option = st.radio("Choose", ["Login", "Signup"])
-
-    username = st.text_input("Username")
-    password = st.text_input("Password", type="password")
-
-    if option == "Signup":
-        if st.button("Signup"):
-            success, msg = signup(username, password)
-            st.success(msg) if success else st.error(msg)
-
-    else:
-        if st.button("Login"):
-            if login(username, password):
-                st.session_state.logged_in = True
-                st.session_state.username = username
-                st.rerun()
-            else:
-                st.error("Invalid credentials")
-
-# ------------------------
-# MAIN CHAT
-# ------------------------
-else:
-    st.title(f"🤖 Chat Assistant (Hi {st.session_state.username})")
-
-    # ------------------------
-    # Sticky Header
-    # ------------------------
-    st.markdown('<div class="sticky-header">', unsafe_allow_html=True)
-
-    col1, col2 = st.columns([1, 2])
-
-    with col1:
-        if st.button("Logout"):
-            st.session_state.logged_in = False
-            st.session_state.chat = []
-            st.rerun()
-            
-    with col2:
-        st.write("Welcome to the AI Assistant! Ask me anything. ")
-
-    st.markdown('</div>', unsafe_allow_html=True)
-
-    # ------------------------
-    # Chat Display
-    # ------------------------
-    for sender, msg in st.session_state.chat:
-        if sender == "You":
-            st.chat_message("user").write(msg)
-        else:
-            st.chat_message("assistant").write(msg)
-            
+def initialise_session() -> None:
+    st.session_state.setdefault("chat_id", None)
+    st.session_state.setdefault("messages", [])
 
 
-   
-    # ------------------------
-    # Text Input
-    # ------------------------
-    query = st.chat_input("Type your message...")
-
-    if query:
-        st.session_state.chat.append(("You", query))
-
-        response = get_response(query)
-        st.session_state.chat.append(("Bot", response))
+def reset_chat() -> None:
+    st.session_state.chat_id = None
+    st.session_state.messages = []
 
 
+def stream_message(api_url: str, message: str):
+    payload = {"message": message}
+    if st.session_state.chat_id:
+        payload["chat_id"] = st.session_state.chat_id
 
+    response = requests.post(
+        f"{api_url.rstrip('/')}/api/chat/stream",
+        json=payload,
+        timeout=120,
+        stream=True,
+    )
+    response.raise_for_status()
+    for line in response.iter_lines(decode_unicode=True):
+        if line:
+            yield json.loads(line)
+
+
+st.set_page_config(page_title="AI Assistant", page_icon="🤖", layout="centered")
+initialise_session()
+
+st.title("AI Assistant")
+st.caption("Chat with your FastAPI and LangGraph assistant.")
+
+with st.sidebar:
+    st.header("Connection")
+    api_url = st.text_input("FastAPI URL", value=DEFAULT_API_URL)
+
+    if st.button("New chat", use_container_width=True):
+        reset_chat()
         st.rerun()
+
+    if st.session_state.chat_id:
+        st.caption("Current chat ID")
+        st.code(st.session_state.chat_id, language=None)
+
+for saved_message in st.session_state.messages:
+    with st.chat_message(saved_message["role"]):
+        st.markdown(saved_message["content"])
+
+if prompt := st.chat_input("Ask anything"):
+    st.session_state.messages.append({"role": "user", "content": prompt})
+    with st.chat_message("user"):
+        st.markdown(prompt)
+
+    with st.chat_message("assistant"):
+        planning_placeholder = st.empty()
+        try:
+            for event in stream_message(api_url, prompt):
+                if event["event"] == "chat_started":
+                    st.session_state.chat_id = event["chat_id"]
+                elif event["event"] == "plan":
+                    # Reuse one placeholder so the previous plan is hidden.
+                    planning_placeholder.info(f"Thinking: {event['content']}")
+                elif event["event"] == "output":
+                    planning_placeholder.empty()
+                    answer = event["response"]
+                    st.markdown(answer)
+                    st.session_state.messages.append({"role": "assistant", "content": answer})
+                elif event["event"] == "error":
+                    planning_placeholder.empty()
+                    st.error(f"API error ({event['status']}): {event['detail']}")
+        except requests.HTTPError as error:
+            st.error(f"API error ({error.response.status_code}): {error.response.text}")
+        except requests.RequestException:
+            st.error(
+                "Cannot reach the FastAPI server. Start it first and check the URL in the sidebar."
+            )
